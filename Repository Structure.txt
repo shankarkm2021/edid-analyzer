@@ -1,0 +1,18 @@
+EDID Parser & Analyzer
+
+edid-analyzer/
+├── src/
+│   ├── edid_parser.py
+│   ├── edid_decoder.py
+│   └── checksum_validator.py
+├── samples/
+│   ├── sample_edid.bin
+│   └── tv_edids/
+├── tests/
+│   ├── test_parser.py
+│   └── test_checksum.py
+├── docs/
+│   └── EDID_STRUCTURE.md
+├── README.md
+├── requirements.txt
+└── LICENSE

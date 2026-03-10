@@ -1,0 +1,24 @@
+============================================================
+EDID ANALYSIS REPORT
+============================================================
+
+MANUFACTURER INFORMATION
+----------------------------------------
+Manufacturer: SAM
+Product ID: 0x0101
+Serial Number: Not specified
+Manufacture Date: Week 1, 2021
+
+DISPLAY CHARACTERISTICS
+----------------------------------------
+Video Input: Digital (HDMI)
+Screen Size: 80cm x 45cm
+Gamma: 2.2
+
+HDMI CAPABILITIES
+----------------------------------------
+HDMI Present: Yes
+Version: 1.4
+Deep Color Support:
+  - 30bit
+  - 36bit

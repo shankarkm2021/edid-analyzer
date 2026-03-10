@@ -1,0 +1,29 @@
+MIT License - Feel free to use in your projects!
+---
+
+## **Project 2: HDMI CEC Command Tester**
+
+### 📁 **Repository Structure**
+
+cec-tester/
+├── src/
+│ ├── cec_commands.py
+│ ├── cec_controller.py
+│ ├── test_suites/
+│ │ ├── basic_commands.py
+│ │ ├── power_control.py
+│ │ └── system_audio.py
+│ └── utils/
+│ ├── logger.py
+│ └── config.py
+├── hardware/
+│ ├── raspberry_pi_setup.md
+│ └── pulse_eight_guide.md
+├── tests/
+│ └── test_cec.py
+├── docs/
+│ ├── CEC_COMMANDS.md
+│ └── PROTOCOL.md
+├── README.md
+├── requirements.txt
+└── LICENSE

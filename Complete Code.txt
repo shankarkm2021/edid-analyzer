@@ -1,0 +1,319 @@
+
+### 📝 **Complete Code**
+
+**src/cec_commands.py**
+```python
+#!/usr/bin/env python3
+"""
+HDMI CEC Command Library
+Implements CEC commands for testing and control
+"""
+
+from enum import IntEnum
+from typing import List, Dict, Optional, Tuple
+import time
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+class CECAddress(IntEnum):
+    """CEC Logical Addresses"""
+    TV = 0
+    RECORDING_DEVICE_1 = 1
+    RECORDING_DEVICE_2 = 2
+    TUNER_1 = 3
+    PLAYBACK_DEVICE_1 = 4
+    AUDIO_SYSTEM = 5
+    TUNER_2 = 6
+    TUNER_3 = 7
+    PLAYBACK_DEVICE_2 = 8
+    PLAYBACK_DEVICE_3 = 9
+    UNREGISTERED = 15
+    
+    @classmethod
+    def get_name(cls, addr: int) -> str:
+        """Get friendly name for address"""
+        names = {
+            0: "TV",
+            1: "Recording Device 1",
+            2: "Recording Device 2",
+            3: "Tuner 1",
+            4: "Playback Device 1",
+            5: "Audio System",
+            6: "Tuner 2",
+            7: "Tuner 3",
+            8: "Playback Device 2",
+            9: "Playback Device 3",
+            15: "Unregistered"
+        }
+        return names.get(addr, f"Unknown ({addr})")
+
+class CECOpcode(IntEnum):
+    """CEC Opcodes for commands"""
+    # System control
+    ACTIVE_SOURCE = 0x82
+    IMAGE_VIEW_ON = 0x04
+    TEXT_VIEW_ON = 0x0D
+    STANDBY = 0x36
+    
+    # Device control
+    GET_CEC_VERSION = 0x9F
+    CEC_VERSION = 0x9E
+    GET_MENU_LANGUAGE = 0x91
+    REPORT_PHYSICAL_ADDRESS = 0x84
+    DEVICE_VENDOR_ID = 0x87
+    
+    # Routing control
+    ROUTING_CHANGE = 0x80
+    ROUTING_INFORMATION = 0x81
+    SET_STREAM_PATH = 0x86
+    
+    # System audio control
+    SYSTEM_AUDIO_MODE_REQUEST = 0x70
+    SYSTEM_AUDIO_MODE_STATUS = 0x7E
+    SET_SYSTEM_AUDIO_MODE = 0x72
+    
+    # One touch play
+    PLAY = 0x41
+    DECK_CONTROL = 0x42
+    DECK_STATUS = 0x1B
+    
+    # Remote control passthrough
+    USER_CONTROL_PRESSED = 0x44
+    USER_CONTROL_RELEASED = 0x45
+    
+    # Power control
+    GIVE_DEVICE_POWER_STATUS = 0x8F
+    REPORT_POWER_STATUS = 0x90
+    
+    # OSD
+    SET_OSD_STRING = 0x64
+    
+    @classmethod
+    def get_name(cls, opcode: int) -> str:
+        """Get friendly name for opcode"""
+        names = {
+            0x82: "ACTIVE_SOURCE",
+            0x04: "IMAGE_VIEW_ON",
+            0x0D: "TEXT_VIEW_ON",
+            0x36: "STANDBY",
+            0x9F: "GET_CEC_VERSION",
+            0x9E: "CEC_VERSION",
+            0x91: "GET_MENU_LANGUAGE",
+            0x84: "REPORT_PHYSICAL_ADDRESS",
+            0x87: "DEVICE_VENDOR_ID",
+            0x80: "ROUTING_CHANGE",
+            0x81: "ROUTING_INFORMATION",
+            0x86: "SET_STREAM_PATH",
+            0x70: "SYSTEM_AUDIO_MODE_REQUEST",
+            0x7E: "SYSTEM_AUDIO_MODE_STATUS",
+            0x72: "SET_SYSTEM_AUDIO_MODE",
+            0x41: "PLAY",
+            0x42: "DECK_CONTROL",
+            0x1B: "DECK_STATUS",
+            0x44: "USER_CONTROL_PRESSED",
+            0x45: "USER_CONTROL_RELEASED",
+            0x8F: "GIVE_DEVICE_POWER_STATUS",
+            0x90: "REPORT_POWER_STATUS",
+            0x64: "SET_OSD_STRING"
+        }
+        return names.get(opcode, f"UNKNOWN (0x{opcode:02X})")
+
+
+class CECPowerStatus(IntEnum):
+    """Power status values"""
+    ON = 0
+    STANDBY = 1
+    IN_TRANSITION_STANDBY_TO_ON = 2
+    IN_TRANSITION_ON_TO_STANDBY = 3
+
+
+class CECUserControl(IntEnum):
+    """User control codes for remote control emulation"""
+    SELECT = 0x00
+    UP = 0x01
+    DOWN = 0x02
+    LEFT = 0x03
+    RIGHT = 0x04
+    RIGHT_UP = 0x05
+    RIGHT_DOWN = 0x06
+    LEFT_UP = 0x07
+    LEFT_DOWN = 0x08
+    ROOT_MENU = 0x09
+    SETUP_MENU = 0x0A
+    CONTENTS_MENU = 0x0B
+    FAVORITE_MENU = 0x0C
+    EXIT = 0x0D
+    NUMBER_0 = 0x20
+    NUMBER_1 = 0x21
+    NUMBER_2 = 0x22
+    NUMBER_3 = 0x23
+    NUMBER_4 = 0x24
+    NUMBER_5 = 0x25
+    NUMBER_6 = 0x26
+    NUMBER_7 = 0x27
+    NUMBER_8 = 0x28
+    NUMBER_9 = 0x29
+    POWER = 0x40
+    VOLUME_UP = 0x41
+    VOLUME_DOWN = 0x42
+    MUTE = 0x43
+    PLAY = 0x44
+    STOP = 0x45
+    PAUSE = 0x46
+    RECORD = 0x47
+    REWIND = 0x48
+    FAST_FORWARD = 0x49
+    EJECT = 0x4A
+    FORWARD = 0x4B
+    BACKWARD = 0x4C
+
+
+class CECFrame:
+    """Represents a CEC frame"""
+    
+    def __init__(self, initiator: int, destination: int, opcode: int, operands: List[int] = None):
+        """
+        Create a CEC frame
+        
+        Args:
+            initiator: Logical address of sender (0-15)
+            destination: Logical address of recipient (0-15)
+            opcode: Command opcode
+            operands: Optional command parameters
+        """
+        self.initiator = initiator
+        self.destination = destination
+        self.opcode = opcode
+        self.operands = operands or []
+        
+    def build(self) -> bytes:
+        """Build the raw CEC frame bytes"""
+        # Header byte: (initiator << 4) | destination
+        header = ((self.initiator & 0x0F) << 4) | (self.destination & 0x0F)
+        
+        # Build frame
+        frame = [header, self.opcode]
+        frame.extend(self.operands)
+        
+        return bytes(frame)
+    
+    @classmethod
+    def parse(cls, data: bytes) -> 'CECFrame':
+        """Parse raw bytes into a CECFrame"""
+        if len(data) < 2:
+            raise ValueError("Frame too short")
+            
+        header = data[0]
+        initiator = (header >> 4) & 0x0F
+        destination = header & 0x0F
+        opcode = data[1]
+        operands = list(data[2:]) if len(data) > 2 else []
+        
+        return cls(initiator, destination, opcode, operands)
+    
+    def __str__(self) -> str:
+        return (f"From: {CECAddress.get_name(self.initiator)} ({self.initiator}) -> "
+                f"{CECAddress.get_name(self.destination)} ({self.destination}): "
+                f"{CECOpcode.get_name(self.opcode)} (0x{self.opcode:02X}) "
+                f"Operands: {[f'0x{b:02X}' for b in self.operands]}")
+
+
+class CECCommandBuilder:
+    """Build standard CEC commands"""
+    
+    @staticmethod
+    def image_view_on(initiator: int = 0x0F, destination: int = CECAddress.TV) -> CECFrame:
+        """Request TV to switch on and show source"""
+        return CECFrame(initiator, destination, CECOpcode.IMAGE_VIEW_ON)
+    
+    @staticmethod
+    def standby(initiator: int = 0x0F, destination: int = CECAddress.TV) -> CECFrame:
+        """Request device to go to standby"""
+        return CECFrame(initiator, destination, CECOpcode.STANDBY)
+    
+    @staticmethod
+    def active_source(initiator: int, physical_address: Tuple[int, int, int, int]) -> CECFrame:
+        """Report that this device is the active source"""
+        # Physical address is 4 bytes: a.b.c.d encoded as 16 bits
+        pa = (physical_address[0] << 12) | (physical_address[1] << 8) | (physical_address[2] << 4) | physical_address[3]
+        operands = [(pa >> 8) & 0xFF, pa & 0xFF]
+        return CECFrame(initiator, 0x0F, CECOpcode.ACTIVE_SOURCE, operands)
+    
+    @staticmethod
+    def give_device_power_status(initiator: int, destination: int) -> CECFrame:
+        """Request power status of a device"""
+        return CECFrame(initiator, destination, CECOpcode.GIVE_DEVICE_POWER_STATUS)
+    
+    @staticmethod
+    def user_control_pressed(initiator: int, destination: int, key: CECUserControl) -> CECFrame:
+        """Simulate remote control key press"""
+        return CECFrame(initiator, destination, CECOpcode.USER_CONTROL_PRESSED, [key])
+    
+    @staticmethod
+    def user_control_released(initiator: int, destination: int) -> CECFrame:
+        """Simulate remote control key release"""
+        return CECFrame(initiator, destination, CECOpcode.USER_CONTROL_RELEASED)
+    
+    @staticmethod
+    def set_osd_string(initiator: int, destination: int, text: str) -> CECFrame:
+        """Set OSD text on display"""
+        # Display text (max 13 characters)
+        if len(text) > 13:
+            text = text[:13]
+        
+        # Display control byte: 0 = display for default time
+        operands = [0]
+        operands.extend([ord(c) for c in text])
+        
+        return CECFrame(initiator, destination, CECOpcode.SET_OSD_STRING, operands)
+    
+    @staticmethod
+    def system_audio_mode_request(initiator: int, destination: int = CECAddress.AUDIO_SYSTEM) -> CECFrame:
+        """Request system audio mode"""
+        return CECFrame(initiator, destination, CECOpcode.SYSTEM_AUDIO_MODE_REQUEST)
+    
+    @staticmethod
+    def give_cec_version(initiator: int, destination: int) -> CECFrame:
+        """Request CEC version supported by device"""
+        return CECFrame(initiator, destination, CECOpcode.GET_CEC_VERSION)
+
+
+class CECResponseParser:
+    """Parse and validate CEC responses"""
+    
+    @staticmethod
+    def parse_power_status(frame: CECFrame) -> Optional[int]:
+        """Extract power status from REPORT_POWER_STATUS frame"""
+        if frame.opcode != CECOpcode.REPORT_POWER_STATUS or not frame.operands:
+            return None
+        return frame.operands[0]
+    
+    @staticmethod
+    def get_power_status_string(status: int) -> str:
+        """Convert power status code to string"""
+        status_map = {
+            0: "On",
+            1: "Standby",
+            2: "In transition (Standby -> On)",
+            3: "In transition (On -> Standby)"
+        }
+        return status_map.get(status, f"Unknown ({status})")
+    
+    @staticmethod
+    def parse_cec_version(frame: CECFrame) -> Optional[str]:
+        """Extract CEC version from CEC_VERSION frame"""
+        if frame.opcode != CECOpcode.CEC_VERSION or not frame.operands:
+            return None
+        
+        version_map = {
+            0: "Unknown",
+            1: "1.2",
+            2: "1.2a",
+            3: "1.3",
+            4: "1.3a",
+            5: "1.4",
+            6: "2.0"
+        }
+        return version
