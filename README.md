@@ -16,7 +16,7 @@ A comprehensive tool for parsing and analyzing EDID (Extended Display Identifica
 ```bash
 git clone https://github.com/yourusername/edid-analyzer
 cd edid-analyzer
-pip install -r requirements.txt
+
 
 
 # NOTE
